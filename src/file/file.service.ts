@@ -1,20 +1,50 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { LoggerService } from 'src/logger/logger.service';
+import { File } from './file.model';
 
 @Injectable()
 export class FileService {
-  reverseTextByFibonacci(file: Buffer) {
-    const text = file.toString();
-    const newText = [];
-    const separateLines = text.split(/\r?\n|\r|\n/g);
-    separateLines.unshift('');
-    for (let i = 1; i < separateLines.length; i++) {
-      if (this.isFibonacci(i)) {
-        newText.push(this.reverseString(separateLines[i]));
-        continue;
+  constructor(
+    @InjectModel('File') private readonly fileModel: Model<File>,
+    private loggerService: LoggerService,
+  ) {}
+
+  async reverseTextByFibonacci(file: Express.Multer.File) {
+    try {
+      this.loggerService.logger.log(
+        'info',
+        'Started reverseTextByFibonacci() function',
+      );
+      const text = file.buffer.toString();
+      const newText = [];
+      const separateLines = text.split(/\r?\n|\r|\n/g);
+      separateLines.unshift('');
+      //throw new Error('Deliberate mistake');
+      for (let i = 1; i < separateLines.length; i++) {
+        if (this.isFibonacci(i)) {
+          newText.push(this.reverseString(separateLines[i]));
+          continue;
+        }
+        newText.push(separateLines[i]);
       }
-      newText.push(separateLines[i]);
+      const reversedText = newText.join('\r\n');
+      const newFile = new this.fileModel({
+        fileName: file.originalname,
+        encoding: file.encoding,
+        date: new Date(),
+        reversedText: reversedText,
+      });
+      await newFile.save();
+      this.loggerService.logger.log(
+        'success',
+        'The text was successfully reversed',
+      );
+      return reversedText;
+    } catch (error) {
+      this.loggerService.logger.log('error', error.message);
     }
-    return newText.join('\r\n');
   }
 
   private reverseString(str: string) {
